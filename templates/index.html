@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Renewable Energy Prediction</title>
+</head>
+<body>
+    <h2>Renewable Energy Adoption Prediction</h2>
+
+    <form method="post" action="/predict_form">
+        <label>Carbon Emission:</label><br>
+        <input type="number" name="carbon_emission" step="any" required><br><br>
+
+        <label>Energy Output:</label><br>
+        <input type="number" name="energy_output" step="any" required><br><br>
+
+        <label>Renewability Index:</label><br>
+        <input type="number" name="renewability_index" step="any" required><br><br>
+
+        <button type="submit">Predict</button>
+    </form>
+
+    {% if result %}
+        <h3>Prediction Result: {{ result }}</h3>
+    {% endif %}
+</body>
+</html>
