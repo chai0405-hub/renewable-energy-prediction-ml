@@ -1,42 +1,59 @@
-from flask import Flask, request, jsonify, render_template
-import joblib
+import streamlit as st
 import numpy as np
+import pandas as pd
+import joblib
+import os
 
-app = Flask(__name__)
+# --------------------------------------------------
+# Page Configuration
+# --------------------------------------------------
+st.set_page_config(
+    page_title="Renewable Energy Prediction System",
+    page_icon="⚡",
+    layout="centered"
+)
 
-# Load trained model
-model = joblib.load("model.pkl")
+st.title("⚡ Renewable Energy Output Prediction")
+st.write("Enter environmental parameters to predict renewable energy output.")
 
-@app.route("/")
-def home():
-    return "Renewable Energy Prediction API is running"
+# --------------------------------------------------
+# Load Model
+# --------------------------------------------------
+@st.cache_resource
+def load_model():
+    model_path = "model.pkl"
+    if os.path.exists(model_path):
+        return joblib.load(model_path)
+    else:
+        return None
 
-@app.route("/predict", methods=["POST"])
-def predict():
-    data = request.json
-    features = np.array([[
-        data["carbon_emission"],
-        data["energy_output"],
-        data["renewability_index"]
-    ]])
-    prediction = model.predict(features)
-    return jsonify({"adoption_prediction": int(prediction[0])})
+model = load_model()
 
-@app.route("/ui")
-def ui():
-    return render_template("index.html", result=None)
+# --------------------------------------------------
+# Sidebar Inputs
+# --------------------------------------------------
+st.sidebar.header("Input Parameters")
 
-@app.route("/predict_form", methods=["POST"])
-def predict_form():
-    ce = float(request.form["carbon_emission"])
-    eo = float(request.form["energy_output"])
-    ri = float(request.form["renewability_index"])
+temperature = st.sidebar.number_input("Temperature (°C)", min_value=-20.0, max_value=60.0, value=25.0)
+humidity = st.sidebar.number_input("Humidity (%)", min_value=0.0, max_value=100.0, value=50.0)
+wind_speed = st.sidebar.number_input("Wind Speed (m/s)", min_value=0.0, max_value=50.0, value=5.0)
+solar_radiation = st.sidebar.number_input("Solar Radiation (W/m²)", min_value=0.0, max_value=1500.0, value=500.0)
 
-    features = np.array([[ce, eo, ri]])
-    prediction = model.predict(features)[0]
+# --------------------------------------------------
+# Prediction
+# --------------------------------------------------
+if st.button("Predict Energy Output"):
 
-    result = "Adopted" if prediction == 1 else "Not Adopted"
-    return render_template("index.html", result=result)
+    if model is None:
+        st.error("⚠ Model file (model.pkl) not found. Please upload it to the repository.")
+    else:
+        input_data = np.array([[temperature, humidity, wind_speed, solar_radiation]])
+        prediction = model.predict(input_data)
 
-if __name__ == "__main__":
-    app.run(debug=True)
+        st.success(f"🔋 Predicted Energy Output: {prediction[0]:.2f} kWh")
+
+# --------------------------------------------------
+# Footer
+# --------------------------------------------------
+st.markdown("---")
+st.caption("Built with Streamlit 🚀")
