@@ -56,7 +56,7 @@ DATA_FILE = "data/renewable_energy_dataset.csv"
 def load_data():
 
     if os.path.exists(DATA_FILE):
-        return pd.read_csv(DATA_FILE)
+        data = pd.read_csv(DATA_FILE)
 
     else:
         st.warning("Dataset not found. Creating sample dataset.")
@@ -85,7 +85,29 @@ def load_data():
             + np.random.normal(0, 10, 300)
         )
 
-        return data
+    # ======================================================
+    # FIX: Clean and standardize column names
+    # ======================================================
+
+    data.columns = data.columns.str.strip()
+
+    rename_map = {
+        "temperature": "Temperature",
+        "rainfall": "Rainfall",
+        "humidity": "Humidity",
+        "windspeed": "WindSpeed",
+        "wind_speed": "WindSpeed",
+        "solar_radiation": "SolarRadiation",
+        "solarradiation": "SolarRadiation",
+        "energy_output": "EnergyOutput",
+        "region": "Region",
+        "country": "Country"
+    }
+
+    data.rename(columns=lambda x: rename_map.get(x.lower(), x), inplace=True)
+
+    return data
+
 
 data = load_data()
 
