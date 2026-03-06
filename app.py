@@ -1,6 +1,6 @@
 # ==========================================================
 # Renewable Energy Prediction System
-# Deploy-Ready Version
+# Fully Deployment-Ready Version
 # ==========================================================
 
 import streamlit as st
@@ -43,25 +43,39 @@ page = st.sidebar.radio(
 )
 
 # ==========================================================
-# Dataset Loader
+# Paths
 # ==========================================================
 
 DATA_DIR = "data"
 DATA_FILE = f"{DATA_DIR}/renewable_energy_dataset.csv"
+MODEL_FILE = "model.pkl"
+
+# ==========================================================
+# Dataset Loader
+# ==========================================================
 
 @st.cache_data
 def load_data():
 
-    # create data folder if missing
     os.makedirs(DATA_DIR, exist_ok=True)
 
+    required_columns = [
+        "Temperature",
+        "Rainfall",
+        "Humidity",
+        "WindSpeed",
+        "SolarRadiation",
+        "EnergyOutput"
+    ]
+
     if os.path.exists(DATA_FILE):
-
         data = pd.read_csv(DATA_FILE)
-
     else:
+        data = None
 
-        # Generate synthetic dataset
+    # regenerate dataset if missing or incorrect
+    if data is None or not all(col in data.columns for col in required_columns):
+
         np.random.seed(42)
 
         regions = ["Asia","Europe","Africa","North America","South America","Australia"]
@@ -86,29 +100,7 @@ def load_data():
             + np.random.normal(0,10,300)
         )
 
-        # Save dataset
-        data.to_csv(DATA_FILE,index=False)
-
-    # Clean columns
-    data.columns = (
-        data.columns
-        .str.strip()
-        .str.replace(" ","")
-        .str.replace("_","")
-        .str.lower()
-    )
-
-    # Standardize names
-    data.rename(columns={
-        "temperature":"Temperature",
-        "rainfall":"Rainfall",
-        "humidity":"Humidity",
-        "windspeed":"WindSpeed",
-        "solarradiation":"SolarRadiation",
-        "energyoutput":"EnergyOutput",
-        "region":"Region",
-        "country":"Country"
-    }, inplace=True)
+        data.to_csv(DATA_FILE, index=False)
 
     return data
 
@@ -118,8 +110,6 @@ data = load_data()
 # ==========================================================
 # Model Loader
 # ==========================================================
-
-MODEL_FILE = "model.pkl"
 
 features = [
     "Temperature",
@@ -141,6 +131,11 @@ def load_model():
     else:
 
         from sklearn.ensemble import RandomForestRegressor
+
+        if not all(col in data.columns for col in features + [target]):
+            st.error("Dataset missing required ML columns.")
+            st.write("Current columns:", list(data.columns))
+            st.stop()
 
         X = data[features]
         y = data[target]
@@ -210,7 +205,7 @@ elif page == "Region Analysis":
         title="Average Energy Output by Region"
     )
 
-    st.plotly_chart(fig,use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
 
 # ==========================================================
 # COUNTRY ANALYSIS
@@ -230,7 +225,7 @@ elif page == "Country Analysis":
         title="Average Energy Output by Country"
     )
 
-    st.plotly_chart(fig,use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
 
 # ==========================================================
 # DATASET DASHBOARD
@@ -249,11 +244,11 @@ elif page == "Dataset Dashboard":
     col1,col2 = st.columns(2)
 
     with col1:
-        fig = px.histogram(data,x="Temperature",nbins=30)
+        fig = px.histogram(data,x="Temperature",nbins=30,title="Temperature Distribution")
         st.plotly_chart(fig)
 
     with col2:
-        fig = px.histogram(data,x="SolarRadiation",nbins=30)
+        fig = px.histogram(data,x="SolarRadiation",nbins=30,title="Solar Radiation Distribution")
         st.plotly_chart(fig)
 
     st.subheader("Wind Speed vs Energy Output")
@@ -270,7 +265,7 @@ elif page == "Dataset Dashboard":
     st.plotly_chart(fig)
 
 # ==========================================================
-# Correlation Heatmap
+# CORRELATION HEATMAP
 # ==========================================================
 
 elif page == "Correlation Heatmap":
