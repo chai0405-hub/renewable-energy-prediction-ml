@@ -9,10 +9,8 @@ import numpy as np
 import joblib
 import os
 import plotly.express as px
-import plotly.graph_objects as go
 import seaborn as sns
 import matplotlib.pyplot as plt
-from datetime import datetime
 
 # ==========================================================
 # Page Configuration
@@ -52,64 +50,67 @@ page = st.sidebar.radio(
 # Load Dataset
 # ==========================================================
 
-DATA_FILE = "renewable_energy_dataset.csv"
+DATA_FILE = "data/renewable_energy_dataset.csv"
 
-if os.path.exists(DATA_FILE):
-    data = pd.read_csv(DATA_FILE)
-else:
-    st.warning("Dataset not found. Creating sample dataset.")
+@st.cache_data
+def load_data():
 
-    np.random.seed(42)
+    if os.path.exists(DATA_FILE):
+        return pd.read_csv(DATA_FILE)
 
-    regions = ["Asia", "Europe", "Africa", "North America", "South America", "Australia"]
-    countries = ["India", "USA", "Germany", "Brazil", "China", "Australia"]
+    else:
+        st.warning("Dataset not found. Creating sample dataset.")
 
-    data = pd.DataFrame({
+        np.random.seed(42)
 
-        "Temperature": np.random.uniform(10, 40, 300),
+        regions = ["Asia", "Europe", "Africa", "North America", "South America", "Australia"]
+        countries = ["India", "USA", "Germany", "Brazil", "China", "Australia"]
 
-        "Rainfall": np.random.uniform(50, 250, 300),
+        data = pd.DataFrame({
 
-        "Humidity": np.random.uniform(30, 90, 300),
+            "Temperature": np.random.uniform(10, 40, 300),
+            "Rainfall": np.random.uniform(50, 250, 300),
+            "Humidity": np.random.uniform(30, 90, 300),
+            "WindSpeed": np.random.uniform(1, 12, 300),
+            "SolarRadiation": np.random.uniform(300, 900, 300),
+            "Region": np.random.choice(regions, 300),
+            "Country": np.random.choice(countries, 300)
 
-        "WindSpeed": np.random.uniform(1, 12, 300),
+        })
 
-        "SolarRadiation": np.random.uniform(300, 900, 300),
+        data["EnergyOutput"] = (
+            data["SolarRadiation"] * 0.6
+            + data["WindSpeed"] * 15
+            - data["Humidity"] * 0.4
+            + np.random.normal(0, 10, 300)
+        )
 
-        "Region": np.random.choice(regions, 300),
+        return data
 
-        "Country": np.random.choice(countries, 300)
-
-    })
-
-    data["EnergyOutput"] = (
-        data["SolarRadiation"] * 0.6
-        + data["WindSpeed"] * 15
-        - data["Humidity"] * 0.4
-        + np.random.normal(0, 10, 300)
-    )
+data = load_data()
 
 # ==========================================================
 # Load Model
 # ==========================================================
 
-MODEL_FILE = "energy_model.pkl"
+MODEL_FILE = "model.pkl"
 
 if os.path.exists(MODEL_FILE):
     model = joblib.load(MODEL_FILE)
+
 else:
     from sklearn.ensemble import RandomForestRegressor
 
     X = data[["Temperature", "Rainfall", "Humidity", "WindSpeed", "SolarRadiation"]]
     y = data["EnergyOutput"]
 
-    model = RandomForestRegressor()
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X, y)
 
     joblib.dump(model, MODEL_FILE)
 
 # ==========================================================
-# ENERGY PREDICTION PAGE
+# ENERGY PREDICTION
 # ==========================================================
 
 if page == "Energy Prediction":
@@ -184,11 +185,9 @@ elif page == "Dataset Dashboard":
     st.header("📊 Dataset Dashboard")
 
     st.subheader("Dataset Preview")
-
     st.dataframe(data.head())
 
     st.subheader("Basic Statistics")
-
     st.write(data.describe())
 
     col1, col2 = st.columns(2)
@@ -263,24 +262,24 @@ st.markdown(
 This system predicts renewable energy output using machine learning
 based on environmental factors such as:
 
-- Temperature
-- Rainfall
-- Humidity
-- Wind Speed
-- Solar Radiation
+- Temperature  
+- Rainfall  
+- Humidity  
+- Wind Speed  
+- Solar Radiation  
 
 The dashboard also provides:
 
-- Region-wise analysis
-- Country-wise analysis
-- Dataset visualization
-- Correlation heatmap
+- Region-wise analysis  
+- Country-wise analysis  
+- Dataset visualization  
+- Correlation heatmap  
 
 Developed using:
 
-- Python
-- Streamlit
-- Scikit-learn
+- Python  
+- Streamlit  
+- Scikit-learn  
 - Plotly
 """
 )
