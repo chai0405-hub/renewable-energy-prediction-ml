@@ -3,249 +3,186 @@ import numpy as np
 import pandas as pd
 import joblib
 import os
-import matplotlib.pyplot as plt
-import seaborn as sns
+import plotly.express as px
 
 # --------------------------------------------------
 # Page Configuration
 # --------------------------------------------------
-
 st.set_page_config(
-    page_title="Renewable Energy Prediction Dashboard",
+    page_title="Renewable Energy Prediction System",
     page_icon="⚡",
     layout="wide"
 )
 
-st.title("⚡ Renewable Energy Output Prediction System")
-st.markdown("Machine Learning powered dashboard for predicting renewable energy production.")
+st.title("🔮 Predict Renewable Energy Output")
 
 # --------------------------------------------------
-# Load Dataset
+# Load Model
 # --------------------------------------------------
-
-@st.cache_data
-def load_data():
-    return pd.read_csv("data/renewable_energy_dataset.csv")
-
-data = load_data()
-
-# Clean column names
-data.columns = data.columns.str.strip()
-
-# --------------------------------------------------
-# Load ML Model
-# --------------------------------------------------
-
 @st.cache_resource
 def load_model():
-    if os.path.exists("model.pkl"):
-        return joblib.load("model.pkl")
-    else:
-        return None
+    model_path = "model.pkl"
+    if os.path.exists(model_path):
+        return joblib.load(model_path)
+    return None
 
 model = load_model()
 
 # --------------------------------------------------
-# Tabs Layout
+# Load Dataset
 # --------------------------------------------------
+@st.cache_data
+def load_data():
+    try:
+        data = pd.read_csv("data/renewable_energy_dataset.csv")
+        data.columns = data.columns.str.strip().str.lower()
+        return data
+    except:
+        return None
 
-tab1, tab2, tab3 = st.tabs([
-    "🔮 Energy Prediction",
-    "📊 Energy Analytics Dashboard",
-    "📂 Dataset Explorer"
-])
+data = load_data()
 
-# ==================================================
-# TAB 1 : PREDICTION
-# ==================================================
+# --------------------------------------------------
+# Sidebar Inputs
+# --------------------------------------------------
+st.sidebar.header("Input Parameters")
 
-with tab1:
+temperature = st.sidebar.number_input(
+    "Temperature (°C)", -20.0, 60.0, 25.0
+)
 
-    st.header("🔮 Predict Renewable Energy Output")
+humidity = st.sidebar.number_input(
+    "Humidity (%)", 0.0, 100.0, 50.0
+)
 
-    st.sidebar.header("Input Parameters")
+wind_speed = st.sidebar.number_input(
+    "Wind Speed (m/s)", 0.0, 50.0, 5.0
+)
 
-    temperature = st.sidebar.slider(
-        "Temperature (°C)", -20.0, 60.0, 25.0
-    )
+solar_radiation = st.sidebar.number_input(
+    "Solar Radiation (W/m²)", 0.0, 1500.0, 500.0
+)
 
-    humidity = st.sidebar.slider(
-        "Humidity (%)", 0.0, 100.0, 50.0
-    )
+# --------------------------------------------------
+# Prediction Section
+# --------------------------------------------------
+st.subheader("⚡ Energy Output Prediction")
 
-    wind_speed = st.sidebar.slider(
-        "Wind Speed (m/s)", 0.0, 50.0, 5.0
-    )
+if st.button("⚡ Predict Energy Output"):
 
-    solar_radiation = st.sidebar.slider(
-        "Solar Radiation (W/m²)", 0.0, 1500.0, 500.0
-    )
+    if model is None:
+        st.error("Model file not found.")
+    else:
 
-    if st.button("⚡ Predict Energy Output"):
+        input_data = np.array([[temperature, humidity, wind_speed, solar_radiation]])
 
-        if model is None:
+        prediction = model.predict(input_data)
 
-            st.error("Model file not found. Please upload model.pkl")
+        st.success(f"⚡ Predicted Energy Output: {prediction[0]:.2f} kWh")
 
-        else:
+# --------------------------------------------------
+# Dashboard Section
+# --------------------------------------------------
+st.markdown("---")
+st.header("📊 Renewable Energy Dashboard")
 
-            input_data = np.array([[temperature, humidity, wind_speed, solar_radiation]])
+if data is None:
+    st.error("Dataset not found.")
+else:
 
-            prediction = model.predict(input_data)
+    # ------------------------------
+    # KPI Metrics
+    # ------------------------------
+    st.subheader("Key Performance Indicators")
 
-            st.success(
-                f"🔋 Predicted Energy Output: {prediction[0]:.2f} kWh"
-            )
+    col1, col2, col3 = st.columns(3)
 
-# ==================================================
-# TAB 2 : DASHBOARD
-# ==================================================
+    if "energy_output" in data.columns:
 
-with tab2:
-
-    st.header("📊 Energy Analytics Dashboard")
-
-    # ---------------- KPIs ----------------
-
-    st.subheader("📈 Key Performance Indicators")
-
-    col1, col2, col3, col4 = st.columns(4)
-
-    col1.metric(
-        "Average Output",
-        f"{data['Energy_Output'].mean():.2f} kWh"
-    )
-
-    col2.metric(
-        "Maximum Output",
-        f"{data['Energy_Output'].max():.2f} kWh"
-    )
-
-    col3.metric(
-        "Minimum Output",
-        f"{data['Energy_Output'].min():.2f} kWh"
-    )
-
-    col4.metric(
-        "Total Energy Generated",
-        f"{data['Energy_Output'].sum():.2f} kWh"
-    )
-
-    st.markdown("---")
-
-    # ---------------- Charts ----------------
-
-    st.subheader("📊 Energy Distribution")
-
-    fig = plt.figure()
-
-    plt.hist(data["Energy_Output"], bins=20)
-
-    plt.xlabel("Energy Output (kWh)")
-    plt.ylabel("Frequency")
-
-    st.pyplot(fig)
-
-    # ---------------- Solar vs Energy ----------------
-
-    st.subheader("☀ Solar Radiation vs Energy Output")
-
-    fig = plt.figure()
-
-    plt.scatter(
-        data["Solar_Radiation"],
-        data["Energy_Output"]
-    )
-
-    plt.xlabel("Solar Radiation")
-    plt.ylabel("Energy Output")
-
-    st.pyplot(fig)
-
-    # ---------------- Wind vs Energy ----------------
-
-    st.subheader("💨 Wind Speed vs Energy Output")
-
-    fig = plt.figure()
-
-    plt.scatter(
-        data["Wind_Speed"],
-        data["Energy_Output"]
-    )
-
-    plt.xlabel("Wind Speed")
-    plt.ylabel("Energy Output")
-
-    st.pyplot(fig)
-
-    # ---------------- Correlation Heatmap ----------------
-
-    st.subheader("🔥 Feature Correlation Heatmap")
-
-    fig = plt.figure()
-
-    sns.heatmap(
-        data.corr(),
-        annot=True
-    )
-
-    st.pyplot(fig)
-
-    # ---------------- Feature Importance ----------------
-
-    if model is not None and hasattr(model, "feature_importances_"):
-
-        st.subheader("⚡ Feature Importance")
-
-        features = [
-            "Temperature",
-            "Humidity",
-            "Wind_Speed",
-            "Solar_Radiation"
-        ]
-
-        importance = pd.DataFrame({
-            "Feature": features,
-            "Importance": model.feature_importances_
-        })
-
-        st.bar_chart(
-            importance.set_index("Feature")
+        col1.metric(
+            "Average Energy Output",
+            f"{data['energy_output'].mean():.2f} kWh"
         )
 
-# ==================================================
-# TAB 3 : DATASET
-# ==================================================
+        col2.metric(
+            "Maximum Energy Output",
+            f"{data['energy_output'].max():.2f} kWh"
+        )
 
-with tab3:
+        col3.metric(
+            "Minimum Energy Output",
+            f"{data['energy_output'].min():.2f} kWh"
+        )
 
-    st.header("📂 Dataset Explorer")
+    # ------------------------------
+    # Charts
+    # ------------------------------
+    st.subheader("Energy Analysis Charts")
 
+    col1, col2 = st.columns(2)
+
+    if "solar_radiation" in data.columns:
+
+        fig1 = px.scatter(
+            data,
+            x="solar_radiation",
+            y="energy_output",
+            title="Solar Radiation vs Energy Output"
+        )
+
+        col1.plotly_chart(fig1, use_container_width=True)
+
+    if "wind_speed" in data.columns:
+
+        fig2 = px.scatter(
+            data,
+            x="wind_speed",
+            y="energy_output",
+            title="Wind Speed vs Energy Output"
+        )
+
+        col2.plotly_chart(fig2, use_container_width=True)
+
+    # ------------------------------
+    # Histogram
+    # ------------------------------
+    st.subheader("Energy Output Distribution")
+
+    if "energy_output" in data.columns:
+
+        fig3 = px.histogram(
+            data,
+            x="energy_output",
+            nbins=30,
+            title="Distribution of Energy Output"
+        )
+
+        st.plotly_chart(fig3, use_container_width=True)
+
+    # ------------------------------
+    # Correlation Heatmap
+    # ------------------------------
+    st.subheader("Feature Correlation Heatmap")
+
+    corr = data.corr(numeric_only=True)
+
+    fig4 = px.imshow(
+        corr,
+        text_auto=True,
+        color_continuous_scale="Viridis"
+    )
+
+    st.plotly_chart(fig4, use_container_width=True)
+
+    # ------------------------------
+    # Dataset Viewer
+    # ------------------------------
     st.subheader("Dataset Preview")
 
-    st.dataframe(data)
-
-    st.subheader("Dataset Statistics")
-
-    st.write(data.describe())
-
-    st.subheader("Dataset Columns")
-
-    st.write(data.columns)
-
-    # Download button
-
-    st.download_button(
-        label="📥 Download Dataset",
-        data=data.to_csv(index=False),
-        file_name="renewable_energy_dataset.csv",
-        mime="text/csv"
-    )
+    st.dataframe(data.head(10))
 
 # --------------------------------------------------
 # Footer
 # --------------------------------------------------
-
 st.markdown("---")
-
-st.caption("🚀 Built with Streamlit | Machine Learning Renewable Energy Prediction System")
+st.caption("Built with Streamlit 🚀 | Renewable Energy Prediction System")
