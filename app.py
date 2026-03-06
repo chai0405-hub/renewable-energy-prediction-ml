@@ -70,7 +70,7 @@ st.markdown("---")
 st.header("📊 Renewable Energy Data Dashboard")
 
 # Load dataset
-data = pd.read_csv("renewable_energy_dataset.csv")
+data = pd.read_csv("data/renewable_energy_dataset.csv")
 
 # Show dataset
 st.subheader("Dataset Preview")
