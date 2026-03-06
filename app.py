@@ -1,6 +1,6 @@
 # ==========================================================
 # Renewable Energy Prediction System
-# Advanced Dashboard Version
+# Advanced Dashboard Version (FIXED)
 # ==========================================================
 
 import streamlit as st
@@ -47,7 +47,7 @@ page = st.sidebar.radio(
 )
 
 # ==========================================================
-# Load Dataset
+# Dataset Loader
 # ==========================================================
 
 DATA_FILE = "data/renewable_energy_dataset.csv"
@@ -56,55 +56,59 @@ DATA_FILE = "data/renewable_energy_dataset.csv"
 def load_data():
 
     if os.path.exists(DATA_FILE):
+
         data = pd.read_csv(DATA_FILE)
 
     else:
+
         st.warning("Dataset not found. Creating sample dataset.")
 
         np.random.seed(42)
 
-        regions = ["Asia", "Europe", "Africa", "North America", "South America", "Australia"]
-        countries = ["India", "USA", "Germany", "Brazil", "China", "Australia"]
+        regions = ["Asia","Europe","Africa","North America","South America","Australia"]
+        countries = ["India","USA","Germany","Brazil","China","Australia"]
 
         data = pd.DataFrame({
 
-            "Temperature": np.random.uniform(10, 40, 300),
-            "Rainfall": np.random.uniform(50, 250, 300),
-            "Humidity": np.random.uniform(30, 90, 300),
-            "WindSpeed": np.random.uniform(1, 12, 300),
-            "SolarRadiation": np.random.uniform(300, 900, 300),
-            "Region": np.random.choice(regions, 300),
-            "Country": np.random.choice(countries, 300)
+            "Temperature": np.random.uniform(10,40,300),
+            "Rainfall": np.random.uniform(50,250,300),
+            "Humidity": np.random.uniform(30,90,300),
+            "WindSpeed": np.random.uniform(1,12,300),
+            "SolarRadiation": np.random.uniform(300,900,300),
+            "Region": np.random.choice(regions,300),
+            "Country": np.random.choice(countries,300)
 
         })
 
         data["EnergyOutput"] = (
-            data["SolarRadiation"] * 0.6
-            + data["WindSpeed"] * 15
-            - data["Humidity"] * 0.4
-            + np.random.normal(0, 10, 300)
+            data["SolarRadiation"]*0.6
+            + data["WindSpeed"]*15
+            - data["Humidity"]*0.4
+            + np.random.normal(0,10,300)
         )
 
     # ======================================================
-    # FIX: Clean and standardize column names
+    # Robust Column Cleaning
     # ======================================================
 
-    data.columns = data.columns.str.strip()
+    data.columns = (
+        data.columns
+        .str.strip()
+        .str.replace(" ", "")
+        .str.replace("_", "")
+        .str.lower()
+    )
 
-    rename_map = {
-        "temperature": "Temperature",
-        "rainfall": "Rainfall",
-        "humidity": "Humidity",
-        "windspeed": "WindSpeed",
-        "wind_speed": "WindSpeed",
-        "solar_radiation": "SolarRadiation",
-        "solarradiation": "SolarRadiation",
-        "energy_output": "EnergyOutput",
-        "region": "Region",
-        "country": "Country"
-    }
-
-    data.rename(columns=lambda x: rename_map.get(x.lower(), x), inplace=True)
+    data.rename(columns={
+        "temperature":"Temperature",
+        "rainfall":"Rainfall",
+        "humidity":"Humidity",
+        "windspeed":"WindSpeed",
+        "solarradiation":"SolarRadiation",
+        "energyoutput":"EnergyOutput",
+        "region":"Region",
+        "country":"Country"
+    }, inplace=True)
 
     return data
 
@@ -112,24 +116,42 @@ def load_data():
 data = load_data()
 
 # ==========================================================
-# Load Model
+# Model Loader / Trainer
 # ==========================================================
 
 MODEL_FILE = "model.pkl"
 
+required_cols = [
+    "Temperature",
+    "Rainfall",
+    "Humidity",
+    "WindSpeed",
+    "SolarRadiation",
+    "EnergyOutput"
+]
+
+missing = [c for c in required_cols if c not in data.columns]
+
+if missing:
+    st.error(f"Dataset missing required columns: {missing}")
+    st.stop()
+
 if os.path.exists(MODEL_FILE):
+
     model = joblib.load(MODEL_FILE)
 
 else:
+
     from sklearn.ensemble import RandomForestRegressor
 
-    X = data[["Temperature", "Rainfall", "Humidity", "WindSpeed", "SolarRadiation"]]
+    X = data[["Temperature","Rainfall","Humidity","WindSpeed","SolarRadiation"]]
     y = data["EnergyOutput"]
 
-    model = RandomForestRegressor(n_estimators=100, random_state=42)
-    model.fit(X, y)
+    model = RandomForestRegressor(n_estimators=100,random_state=42)
 
-    joblib.dump(model, MODEL_FILE)
+    model.fit(X,y)
+
+    joblib.dump(model,MODEL_FILE)
 
 # ==========================================================
 # ENERGY PREDICTION
@@ -139,22 +161,30 @@ if page == "Energy Prediction":
 
     st.header("🔮 Predict Renewable Energy Output")
 
-    col1, col2 = st.columns(2)
+    col1,col2 = st.columns(2)
 
     with col1:
-        temperature = st.slider("Temperature (°C)", 0, 50, 25)
-        rainfall = st.slider("Rainfall (mm)", 0, 300, 150)
-        humidity = st.slider("Humidity (%)", 0, 100, 60)
+
+        temperature = st.slider("Temperature (°C)",0,50,25)
+        rainfall = st.slider("Rainfall (mm)",0,300,150)
+        humidity = st.slider("Humidity (%)",0,100,60)
 
     with col2:
-        wind_speed = st.slider("Wind Speed (m/s)", 0, 20, 5)
-        solar_radiation = st.slider("Solar Radiation (W/m²)", 0, 1000, 600)
+
+        wind_speed = st.slider("Wind Speed (m/s)",0,20,5)
+        solar_radiation = st.slider("Solar Radiation (W/m²)",0,1000,600)
 
     if st.button("Predict Energy Output"):
 
-        input_data = np.array([[temperature, rainfall, humidity, wind_speed, solar_radiation]])
+        input_df = pd.DataFrame({
+            "Temperature":[temperature],
+            "Rainfall":[rainfall],
+            "Humidity":[humidity],
+            "WindSpeed":[wind_speed],
+            "SolarRadiation":[solar_radiation]
+        })
 
-        prediction = model.predict(input_data)[0]
+        prediction = model.predict(input_df)[0]
 
         st.success(f"⚡ Predicted Renewable Energy Output: {prediction:.2f} kWh")
 
@@ -176,7 +206,7 @@ elif page == "Region Analysis":
         color="Region"
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig,use_container_width=True)
 
 # ==========================================================
 # COUNTRY ANALYSIS
@@ -196,7 +226,7 @@ elif page == "Country Analysis":
         color="Country"
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig,use_container_width=True)
 
 # ==========================================================
 # DATASET DASHBOARD
@@ -212,7 +242,7 @@ elif page == "Dataset Dashboard":
     st.subheader("Basic Statistics")
     st.write(data.describe())
 
-    col1, col2 = st.columns(2)
+    col1,col2 = st.columns(2)
 
     with col1:
 
@@ -259,7 +289,7 @@ elif page == "Correlation Heatmap":
 
     corr = data.corr(numeric_only=True)
 
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig,ax = plt.subplots(figsize=(10,6))
 
     sns.heatmap(
         corr,
@@ -272,7 +302,7 @@ elif page == "Correlation Heatmap":
     st.pyplot(fig)
 
 # ==========================================================
-# FOOTER
+# Footer
 # ==========================================================
 
 st.markdown("---")
@@ -292,16 +322,16 @@ based on environmental factors such as:
 
 The dashboard also provides:
 
-- Region-wise analysis  
-- Country-wise analysis  
-- Dataset visualization  
-- Correlation heatmap  
+• Region-wise analysis  
+• Country-wise analysis  
+• Dataset visualization  
+• Correlation heatmap  
 
 Developed using:
 
-- Python  
-- Streamlit  
-- Scikit-learn  
-- Plotly
+• Python  
+• Streamlit  
+• Scikit-learn  
+• Plotly  
 """
 )
