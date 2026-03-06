@@ -1,6 +1,6 @@
 # ==========================================================
 # Renewable Energy Prediction System
-# Advanced Dashboard Version (FIXED)
+# Deploy-Ready Version
 # ==========================================================
 
 import streamlit as st
@@ -13,7 +13,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # ==========================================================
-# Page Configuration
+# Page Config
 # ==========================================================
 
 st.set_page_config(
@@ -21,10 +21,6 @@ st.set_page_config(
     page_icon="⚡",
     layout="wide"
 )
-
-# ==========================================================
-# Title
-# ==========================================================
 
 st.title("⚡ Renewable Energy Output Prediction System")
 st.markdown("Machine Learning Dashboard for Renewable Energy Analysis")
@@ -50,10 +46,14 @@ page = st.sidebar.radio(
 # Dataset Loader
 # ==========================================================
 
-DATA_FILE = "data/renewable_energy_dataset.csv"
+DATA_DIR = "data"
+DATA_FILE = f"{DATA_DIR}/renewable_energy_dataset.csv"
 
 @st.cache_data
 def load_data():
+
+    # create data folder if missing
+    os.makedirs(DATA_DIR, exist_ok=True)
 
     if os.path.exists(DATA_FILE):
 
@@ -61,8 +61,7 @@ def load_data():
 
     else:
 
-        st.warning("Dataset not found. Creating sample dataset.")
-
+        # Generate synthetic dataset
         np.random.seed(42)
 
         regions = ["Asia","Europe","Africa","North America","South America","Australia"]
@@ -87,18 +86,19 @@ def load_data():
             + np.random.normal(0,10,300)
         )
 
-    # ======================================================
-    # Robust Column Cleaning
-    # ======================================================
+        # Save dataset
+        data.to_csv(DATA_FILE,index=False)
 
+    # Clean columns
     data.columns = (
         data.columns
         .str.strip()
-        .str.replace(" ", "")
-        .str.replace("_", "")
+        .str.replace(" ","")
+        .str.replace("_","")
         .str.lower()
     )
 
+    # Standardize names
     data.rename(columns={
         "temperature":"Temperature",
         "rainfall":"Rainfall",
@@ -116,42 +116,48 @@ def load_data():
 data = load_data()
 
 # ==========================================================
-# Model Loader / Trainer
+# Model Loader
 # ==========================================================
 
 MODEL_FILE = "model.pkl"
 
-required_cols = [
+features = [
     "Temperature",
     "Rainfall",
     "Humidity",
     "WindSpeed",
-    "SolarRadiation",
-    "EnergyOutput"
+    "SolarRadiation"
 ]
 
-missing = [c for c in required_cols if c not in data.columns]
+target = "EnergyOutput"
 
-if missing:
-    st.error(f"Dataset missing required columns: {missing}")
-    st.stop()
+@st.cache_resource
+def load_model():
 
-if os.path.exists(MODEL_FILE):
+    if os.path.exists(MODEL_FILE):
 
-    model = joblib.load(MODEL_FILE)
+        model = joblib.load(MODEL_FILE)
 
-else:
+    else:
 
-    from sklearn.ensemble import RandomForestRegressor
+        from sklearn.ensemble import RandomForestRegressor
 
-    X = data[["Temperature","Rainfall","Humidity","WindSpeed","SolarRadiation"]]
-    y = data["EnergyOutput"]
+        X = data[features]
+        y = data[target]
 
-    model = RandomForestRegressor(n_estimators=100,random_state=42)
+        model = RandomForestRegressor(
+            n_estimators=100,
+            random_state=42
+        )
 
-    model.fit(X,y)
+        model.fit(X,y)
 
-    joblib.dump(model,MODEL_FILE)
+        joblib.dump(model,MODEL_FILE)
+
+    return model
+
+
+model = load_model()
 
 # ==========================================================
 # ENERGY PREDICTION
@@ -164,13 +170,11 @@ if page == "Energy Prediction":
     col1,col2 = st.columns(2)
 
     with col1:
-
         temperature = st.slider("Temperature (°C)",0,50,25)
         rainfall = st.slider("Rainfall (mm)",0,300,150)
         humidity = st.slider("Humidity (%)",0,100,60)
 
     with col2:
-
         wind_speed = st.slider("Wind Speed (m/s)",0,20,5)
         solar_radiation = st.slider("Solar Radiation (W/m²)",0,1000,600)
 
@@ -196,14 +200,14 @@ elif page == "Region Analysis":
 
     st.header("🌍 Region-wise Energy Production")
 
-    region_energy = data.groupby("Region")["EnergyOutput"].mean().reset_index()
+    region_energy = data.groupby("Region")[target].mean().reset_index()
 
     fig = px.bar(
         region_energy,
         x="Region",
-        y="EnergyOutput",
-        title="Average Energy Output by Region",
-        color="Region"
+        y=target,
+        color="Region",
+        title="Average Energy Output by Region"
     )
 
     st.plotly_chart(fig,use_container_width=True)
@@ -216,14 +220,14 @@ elif page == "Country Analysis":
 
     st.header("🌎 Country-wise Energy Production")
 
-    country_energy = data.groupby("Country")["EnergyOutput"].mean().reset_index()
+    country_energy = data.groupby("Country")[target].mean().reset_index()
 
     fig = px.bar(
         country_energy,
         x="Country",
-        y="EnergyOutput",
-        title="Average Energy Output by Country",
-        color="Country"
+        y=target,
+        color="Country",
+        title="Average Energy Output by Country"
     )
 
     st.plotly_chart(fig,use_container_width=True)
@@ -239,31 +243,17 @@ elif page == "Dataset Dashboard":
     st.subheader("Dataset Preview")
     st.dataframe(data.head())
 
-    st.subheader("Basic Statistics")
+    st.subheader("Statistics")
     st.write(data.describe())
 
     col1,col2 = st.columns(2)
 
     with col1:
-
-        fig = px.histogram(
-            data,
-            x="Temperature",
-            nbins=30,
-            title="Temperature Distribution"
-        )
-
+        fig = px.histogram(data,x="Temperature",nbins=30)
         st.plotly_chart(fig)
 
     with col2:
-
-        fig = px.histogram(
-            data,
-            x="SolarRadiation",
-            nbins=30,
-            title="Solar Radiation Distribution"
-        )
-
+        fig = px.histogram(data,x="SolarRadiation",nbins=30)
         st.plotly_chart(fig)
 
     st.subheader("Wind Speed vs Energy Output")
@@ -280,7 +270,7 @@ elif page == "Dataset Dashboard":
     st.plotly_chart(fig)
 
 # ==========================================================
-# CORRELATION HEATMAP
+# Correlation Heatmap
 # ==========================================================
 
 elif page == "Correlation Heatmap":
@@ -311,27 +301,16 @@ st.markdown(
 """
 ### Project Information
 
-This system predicts renewable energy output using machine learning
-based on environmental factors such as:
+This dashboard predicts renewable energy output using environmental factors.
 
-- Temperature  
-- Rainfall  
-- Humidity  
-- Wind Speed  
-- Solar Radiation  
+Features:
 
-The dashboard also provides:
-
-• Region-wise analysis  
-• Country-wise analysis  
-• Dataset visualization  
+• Energy prediction  
+• Region analysis  
+• Country analysis  
+• Dataset dashboard  
 • Correlation heatmap  
 
-Developed using:
-
-• Python  
-• Streamlit  
-• Scikit-learn  
-• Plotly  
+Built with **Streamlit + Machine Learning**.
 """
 )
